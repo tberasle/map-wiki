@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Moon, Sun, Map as MapIcon, ChevronRight, Volume2, VolumeX, Search, Filter, Image } from 'lucide-react';
+import { Download, Upload, Trash2, Moon, Sun, Map as MapIcon, ChevronRight, Volume2, VolumeX, Search, Filter, Image, Edit2, Eye } from 'lucide-react';
 import { sfx } from '../utils/SoundManager';
 import { ICONS } from '../utils/constants';
 
@@ -19,11 +19,16 @@ const Sidebar = ({
     onToggleFilter,
 
     onOpenAtlas,
-    onExportImage
+    onExportImage,
+    isGlobalEditMode,
+    onToggleGlobalEdit,
+    starSettings,
+    onUpdateStarSettings
 }) => {
     const [isMuted, setIsMuted] = useState(sfx.muted);
     const [searchQuery, setSearchQuery] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [showSettings, setShowSettings] = useState(false); // New state for settings panel
 
     const toggleMute = () => {
         const muted = sfx.toggleMute();
@@ -51,6 +56,17 @@ const Sidebar = ({
                     Wiki Map
                 </h2>
                 <div style={{ flex: 1 }} />
+                <div
+                    className="toggle-switch"
+                    onClick={() => { sfx.playUiSelect(); onToggleGlobalEdit(); }}
+                    onMouseEnter={() => sfx.playHover()}
+                    title={isGlobalEditMode ? "Switch to View Mode" : "Switch to Edit Mode"}
+                >
+                    <div className={`toggle-option ${!isGlobalEditMode ? 'active' : ''}`}>View</div>
+                    <div className={`toggle-option ${isGlobalEditMode ? 'active' : ''}`}>Edit</div>
+                    <div className={`toggle-slider ${isGlobalEditMode ? 'right' : 'left'}`} />
+                </div>
+
                 <button
                     className="icon-btn"
                     onClick={toggleMute}
@@ -241,20 +257,74 @@ const Sidebar = ({
                                 {pin.mapImage ? <MapIcon size={16} color="var(--accent-color)" /> : <div style={{ width: 16 }} />}
                                 <span style={{ fontWeight: '500' }}>{pin.title || 'Untitled'}</span>
                             </div>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); sfx.playClick(); onDeletePin(pin.id); }}
-                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-                                title="Delete Location"
-                                onMouseEnter={() => sfx.playHover()}
-                            >
-                                <Trash2 size={14} />
-                            </button>
+                            {isGlobalEditMode && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); sfx.playClick(); onDeletePin(pin.id); }}
+                                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                                    title="Delete Location"
+                                    onMouseEnter={() => sfx.playHover()}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
                         </li>
                     ))}
                 </ul>
             </div>
+            {/* Visual Effects Settings */}
+            <div className="section-header" onClick={() => setShowSettings(!showSettings)} style={{ cursor: 'pointer', marginTop: '1rem' }}>
+                <h3>Visual Effects</h3>
+                {showSettings ? <ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} /> : <ChevronRight size={16} />}
+            </div>
+
+            {showSettings && starSettings && onUpdateStarSettings && (
+                <div style={{ padding: '0.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(0,0,0,0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label>Star Color</label>
+                        <input
+                            type="color"
+                            value={starSettings.starColor}
+                            onChange={(e) => onUpdateStarSettings({ ...starSettings, starColor: e.target.value })}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', width: '30px', height: '30px' }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label>Nebula Color</label>
+                        <input
+                            type="color"
+                            value={starSettings.nebulaColor || '#4c1d95'}
+                            onChange={(e) => onUpdateStarSettings({ ...starSettings, nebulaColor: e.target.value })}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', width: '30px', height: '30px' }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <label>Nebula Intensity: {Math.round((starSettings.nebulaIntensity || 0) * 100)}%</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={starSettings.nebulaIntensity || 0}
+                            onChange={(e) => onUpdateStarSettings({ ...starSettings, nebulaIntensity: parseFloat(e.target.value) })}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <label>Star Twinkle: {starSettings.twinkleSpeed || 0}x</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="5"
+                            step="0.1"
+                            value={starSettings.twinkleSpeed !== undefined ? starSettings.twinkleSpeed : 0.5}
+                            onChange={(e) => onUpdateStarSettings({ ...starSettings, speed: 0, twinkleSpeed: parseFloat(e.target.value) })}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
-
 export default Sidebar;

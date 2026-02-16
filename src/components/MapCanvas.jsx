@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Pin from './Pin';
 
-const MapCanvas = ({ mapImage, pins, onAddPin, onSelectPin, selectedPinId, onContextMenu, onPinContextMenu, isEditing, onPinMove }) => {
+const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, onContextMenu, onPinContextMenu, isEditing, onPinMove, connectingSourceId, isGlobalEditMode, transitionMode, transitionOrigin }) => {
     const [scale, setScale] = useState(1);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
@@ -86,7 +86,18 @@ const MapCanvas = ({ mapImage, pins, onAddPin, onSelectPin, selectedPinId, onCon
     };
 
     const handlePinMouseDown = (e, pinId) => {
-        if (!isEditing) return; // Only drag in edit mode
+        if (!isGlobalEditMode) return; // Only drag in global edit mode
+        if (!isEditing) return; // Only drag in edit mode (local) - Wait, do we want to allow moving pins without opening them? User asked for "Remove edit buttons from location level... global edit on/off". Maybe moving implies being in "Edit Mode". Let's stick to: Must be Global Edit Mode AND functionality enabled.
+        // Actually, if we remove local edit buttons, how do we move?
+        // "Global edit on off toggle".
+        // If Global Edit is ON, we should be able to drag pins.
+        // Previously: `if (!isEditing) return;` (Only drag if selected/editing).
+        // Let's keep that requirement? Or relax it? 
+        // If I toggle "Edit Mode", I expect to be able to drag things.
+        // I'll relax the `isEditing` check? 
+        // "Draggable Pins (in Edit Mode)" was a task.
+        // Let's keep it restricted for now to avoid accidental moves.
+        if (!isEditing) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -142,6 +153,7 @@ const MapCanvas = ({ mapImage, pins, onAddPin, onSelectPin, selectedPinId, onCon
 
     const handleContextMenu = (e) => {
         e.preventDefault();
+        if (!isGlobalEditMode) return;
         if (isDragging) return;
         if (!mapImage) return;
 
@@ -181,38 +193,87 @@ const MapCanvas = ({ mapImage, pins, onAddPin, onSelectPin, selectedPinId, onCon
             onContextMenu={(e) => e.preventDefault()} // Prevent context menu on canvas container
         >
             <div
-                className="map-world"
+                className={`transition-layer ${transitionMode || ''}`}
                 style={{
-                    transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                    transformOrigin: transitionOrigin ? `${transitionOrigin.x}% ${transitionOrigin.y}%` : 'center center'
                 }}
             >
-                {mapImage && (
-                    <div style={{ position: 'relative' }}>
-                        <img
-                            src={mapImage}
-                            alt="Map"
-                            className="map-img-element"
-                            onLoad={handleImageLoad}
-                            onContextMenu={handleContextMenu}
-                            onDragStart={(e) => e.preventDefault()}
-                            style={{ display: 'block', pointerEvents: 'auto' }}
-                        />
-                        {pins.map(pin => (
-                            <Pin
-                                key={pin.id}
-                                x={pin.x}
-                                y={pin.y}
-                                data={pin}
-                                scale={scale}
-                                isEditing={isEditing && selectedPinId === pin.id} // Only editable if selected
-                                isSelected={selectedPinId === pin.id}
-                                onClick={() => onSelectPin(pin.id)}
-                                onMouseDown={(e) => handlePinMouseDown(e, pin.id)}
-                                onContextMenu={(e) => onPinContextMenu && onPinContextMenu(e, pin.id)}
+                <div
+                    className="map-world"
+                    style={{
+                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                    }}
+                >
+                    {mapImage && (
+                        <div style={{ position: 'relative' }}>
+                            <img
+                                src={mapImage}
+                                alt="Map"
+                                className="map-img-element"
+                                onLoad={handleImageLoad}
+                                onContextMenu={handleContextMenu}
+                                onDragStart={(e) => e.preventDefault()}
+                                style={{
+                                    display: 'block',
+                                    pointerEvents: 'auto',
+                                    cursor: connectingSourceId ? 'crosshair' : 'default'
+                                }}
                             />
-                        ))}
-                    </div>
-                )}
+
+                            {/* Connections Layer */}
+                            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
+                                {pins.map(pin => (
+                                    (pin.connections || []).map(targetId => {
+                                        const target = pins.find(p => p.id === targetId);
+                                        if (!target) return null;
+                                        return (
+                                            <line
+                                                key={`${pin.id}-${target.id}`}
+                                                x1={`${pin.x}%`}
+                                                y1={`${pin.y}%`}
+                                                x2={`${target.x}%`}
+                                                y2={`${target.y}%`}
+                                                stroke="rgba(255, 255, 255, 0.4)"
+                                                strokeWidth="2"
+                                                strokeDasharray="5,5"
+                                            />
+                                        );
+                                    })
+                                ))}
+                            </svg>
+
+                            {pins.map(pin => (
+                                <Pin
+                                    key={pin.id}
+                                    x={pin.x}
+                                    y={pin.y}
+                                    data={pin}
+                                    scale={scale}
+                                    isEditing={isEditing && selectedPinId === pin.id} // Only editable if selected
+                                    isSelected={selectedPinId === pin.id}
+                                    disabled={!!transitionMode}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+
+                                        // Calculate origin relative to container
+                                        if (containerRef.current) {
+                                            const rect = containerRef.current.getBoundingClientRect();
+                                            const origin = {
+                                                x: ((e.clientX - rect.left) / rect.width) * 100,
+                                                y: ((e.clientY - rect.top) / rect.height) * 100
+                                            };
+                                            onSelectPin(pin.id, origin);
+                                        } else {
+                                            onSelectPin(pin.id);
+                                        }
+                                    }}
+                                    onMouseDown={(e) => handlePinMouseDown(e, pin.id)}
+                                    onContextMenu={(e) => onPinContextMenu && onPinContextMenu(e, pin.id)}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {!mapImage && (

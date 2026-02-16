@@ -5,7 +5,7 @@ import { X, Save, Upload, Edit2, Trash2 } from 'lucide-react';
 import { ICONS, COLORS } from '../utils/constants';
 import { sfx } from '../utils/SoundManager';
 
-const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSetEditing, onDelete }) => {
+const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSetEditing, onDelete, items, onRemoveConnection, isGlobalEditMode }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [mapImage, setMapImage] = useState(null);
@@ -47,16 +47,18 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
             <div className="sidebar-header">
                 <h2>{isEditing ? 'Edit Location' : 'Location Details'}</h2>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                        className="icon-btn"
-                        onClick={() => { sfx.playClick(); onDelete(); }}
-                        onMouseEnter={() => sfx.playHover()}
-                        title="Delete Location"
-                        style={{ color: '#ef4444' }}
-                    >
-                        <Trash2 size={20} />
-                    </button>
-                    {!isEditing && (
+                    {isGlobalEditMode && (
+                        <button
+                            className="icon-btn"
+                            onClick={() => { sfx.playClick(); onDelete(); }}
+                            onMouseEnter={() => sfx.playHover()}
+                            title="Delete Location"
+                            style={{ color: '#ef4444' }}
+                        >
+                            <Trash2 size={20} />
+                        </button>
+                    )}
+                    {!isEditing && isGlobalEditMode && (
                         <button
                             className="icon-btn"
                             onClick={() => { sfx.playUiSelect(); onSetEditing(true); }}
@@ -179,6 +181,50 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
                         }}
                     />
                 </div>
+
+                {(selectedPin.connections?.length > 0 || (items && items.some(i => (i.connections || []).includes(selectedPin.id)))) && (
+                    <div className="form-group">
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Connected Locations</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {/* Outgoing Connections */}
+                            {(selectedPin.connections || []).map(connId => {
+                                const connItem = items.find(i => i.id === connId);
+                                if (!connItem) return null;
+                                return (
+                                    <div key={connId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '0.25rem', border: '1px solid var(--border-color)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: connItem.color || 'var(--text-color)' }}></span>
+                                            <span>{connItem.title || 'Untitled'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            {isEditing && (
+                                                <button
+                                                    onClick={() => onRemoveConnection(connId)}
+                                                    className="icon-btn"
+                                                    title="Remove Connection"
+                                                    style={{ color: '#ef4444', padding: '2px' }}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Incoming Connections */}
+                            {items && items.filter(i => (i.connections || []).includes(selectedPin.id)).map(connItem => (
+                                <div key={connItem.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '0.25rem', border: '1px dashed var(--border-color)', opacity: 0.8 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '0.8rem', marginRight: '0.25rem' }}>↳ from</span>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: connItem.color || 'var(--text-color)' }}></span>
+                                        <span>{connItem.title || 'Untitled'}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="form-group" style={{ marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Location Map</label>

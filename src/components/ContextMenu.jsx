@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ContextMenu = ({ x, y, visible, mode = 'map', onAddLocation, onEditPin, onDeletePin, onClose }) => {
+const ContextMenu = ({ x, y, visible, mode = 'map', onAddLocation, onEditPin, onDeletePin, onConnect, onClose }) => {
     if (!visible) return null;
 
     return (
@@ -44,6 +44,15 @@ const ContextMenu = ({ x, y, visible, mode = 'map', onAddLocation, onEditPin, on
                         onMouseLeave={handleMouseLeave}
                     >
                         Edit Location
+                    </button>
+                    <button
+                        className="btn-menu-item"
+                        onClick={() => { onConnect(); onClose(); }}
+                        style={menuItemStyle}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                    >
+                        Connect to...
                     </button>
                     <button
                         className="btn-menu-item"

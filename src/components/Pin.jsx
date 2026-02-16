@@ -3,7 +3,7 @@ import { Map as MapIcon, MapPin } from 'lucide-react'; // MapIcon is used for su
 import { ICONS } from '../utils/constants';
 import { sfx } from '../utils/SoundManager';
 
-const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onMouseDown, onContextMenu }) => {
+const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onMouseDown, onContextMenu, disabled }) => {
     if (!data) return null;
 
     // Safety check for ICONS
@@ -39,18 +39,22 @@ const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onM
                 transform: transformStyle,
                 transformOrigin: transformOriginStyle,
                 zIndex: isSelected ? 100 : 1,
-                cursor: isEditing ? 'move' : 'pointer'
+                cursor: isEditing ? 'move' : (disabled ? 'default' : 'pointer'),
+                pointerEvents: disabled ? 'none' : 'auto',
+                opacity: disabled ? 0.7 : 1
             }}
             onClick={(e) => {
+                if (disabled) return;
                 e.stopPropagation();
                 try {
                     sfx.playUiSelect();
                 } catch (err) {
                     console.warn("SFX Error:", err);
                 }
-                onClick();
+                if (onClick) onClick(e);
             }}
             onMouseEnter={() => {
+                if (disabled) return;
                 try {
                     sfx.playHover();
                 } catch (e) { /* ignore */ }

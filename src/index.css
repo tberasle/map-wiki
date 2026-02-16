@@ -41,8 +41,8 @@ body {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background-color: #000;
-  /* Dark background for map area */
+  background-color: transparent;
+  /* Transparent to show starfield */
   cursor: grab;
   display: flex;
   align-items: center;
@@ -89,6 +89,7 @@ body {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   z-index: 10;
+  pointer-events: auto;
 }
 
 .map-pin:hover {
@@ -298,6 +299,154 @@ input[type="text"]:focus {
 }
 
 /* Numbered list margin */
+.ql-editor ol li {
+  padding-left: 0;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  display: flex;
+  position: relative;
+  background-color: var(--secondary-color);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  cursor: pointer;
+  width: 120px;
+  height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px;
+  box-sizing: border-box;
+  user-select: none;
+  margin-right: 0.5rem;
+}
+
+.toggle-option {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-color);
+  z-index: 2;
+  transition: color 0.3s;
+  opacity: 0.7;
+}
+
+.toggle-option.active {
+  color: white;
+  opacity: 1;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  height: calc(100% - 4px);
+  background-color: var(--primary-color);
+  border-radius: 16px;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  z-index: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-slider.right {
+  transform: translateX(100%);
+}
+
+.toggle-slider.left {
+  transform: translateX(0);
+}
+
 .ql-editor ol {
   margin-left: 0.75rem !important;
+}
+
+/* Map World Container */
+.map-world {
+  pointer-events: auto;
+  transform-origin: 0 0;
+  /* Important for pan/zoom transform */
+}
+
+/* Zoom Transitions */
+.transition-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+}
+
+/* Exit Animations (Keyframe based) */
+.transition-layer.zooming-in {
+  animation: zoomInExit 0.5s cubic-bezier(0.5, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+.transition-layer.zooming-out {
+  animation: zoomOutExit 0.5s cubic-bezier(0.5, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+/* Enter Animations (Keyframe based) */
+.transition-layer.entering-in {
+  animation: zoomInEnter 0.5s cubic-bezier(0, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+.transition-layer.entering-out {
+  animation: zoomOutEnter 0.5s cubic-bezier(0, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes zoomInEnter {
+  from {
+    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.17);
+    opacity: 0;
+  }
+
+  to {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes zoomOutEnter {
+  from {
+    transform: scale(6);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes zoomInExit {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  to {
+    transform: scale(6);
+    opacity: 0;
+  }
+}
+
+@keyframes zoomOutExit {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  to {
+    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.17);
+    opacity: 0;
+  }
 }
