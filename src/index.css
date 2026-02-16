@@ -1,0 +1,303 @@
+:root {
+  --bg-color: #0f172a;
+  --text-color: #e2e8f0;
+  --primary-color: #3b82f6;
+  --secondary-color: #1e293b;
+  --accent-color: #60a5fa;
+  --border-color: #334155;
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --pin-color: #ef4444;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  overflow: hidden;
+  /* Prevent scroll on body, handle in map container */
+}
+
+/* Glassmorphism Utility */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Map Canvas */
+.map-canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background-color: #000;
+  /* Dark background for map area */
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-canvas-container:active {
+  cursor: grabbing;
+}
+
+.map-image {
+  max-width: none;
+  /* Allow image to be larger than container */
+  transform-origin: 0 0;
+  user-select: none;
+  pointer-events: none;
+  /* Let container handle clicks for pins? No, we need clicks on image */
+}
+
+/* We will handle pan/zoom on a wrapper div */
+.map-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.map-img-element {
+  display: block;
+  pointer-events: auto;
+  user-select: none;
+  /* Prevent selection highlight on drag */
+  -webkit-user-drag: none;
+  /* Prevent native drag ghost */
+}
+
+/* Pins */
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  /* Center bottom is the anchor */
+  cursor: pointer;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 10;
+}
+
+.map-pin:hover {
+  transform: translate(-50%, -100%) scale(1.2);
+  z-index: 20;
+}
+
+.map-pin.selected {
+  filter: drop-shadow(0 0 8px var(--primary-color));
+}
+
+.pin-label {
+  margin-top: 4px;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  /* Ensure it's rendered but hidden */
+}
+
+/* Show label on hover */
+.map-pin:hover .pin-label {
+  opacity: 1;
+  z-index: 100;
+}
+
+/* Show label if forced (checkbox checked) */
+.map-pin.force-visible .pin-label {
+  opacity: 1;
+}
+
+/* Force all labels visible during export */
+.map-canvas-container.export-mode .pin-label {
+  opacity: 1 !important;
+  z-index: 100;
+}
+
+/* Wiki Editor / Sidebar */
+.wiki-sidebar {
+  width: 400px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  box-sizing: border-box;
+  transition: transform 0.3s ease-in-out;
+  z-index: 100;
+  border-left: 1px solid var(--border-color);
+}
+
+.wiki-sidebar.closed {
+  transform: translateX(100%);
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.sidebar-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+/* Form Elements */
+input[type="text"] {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: var(--secondary-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  color: var(--text-color);
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* React Quill Customizations for Dark Mode */
+.ql-toolbar {
+  background-color: var(--secondary-color);
+  border-color: var(--border-color) !important;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+.ql-container {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-color: var(--border-color) !important;
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  color: var(--text-color);
+  font-size: 1rem;
+  min-height: 200px;
+}
+
+.ql-stroke {
+  stroke: var(--text-color) !important;
+}
+
+.ql-fill {
+  fill: var(--text-color) !important;
+}
+
+.ql-picker {
+  color: var(--text-color) !important;
+}
+
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* File Upload Area */
+.details-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #94a3b8;
+  padding: 2rem;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.upload-btn {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-btn:hover {
+  background-color: var(--accent-color);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* List Customization */
+.ql-editor ul,
+.ql-editor ol {
+  padding-left: 0 !important;
+  margin-left: 0.5rem !important;
+}
+
+.ql-editor li {
+  padding-left: 0 !important;
+  margin-left: 1rem !important;
+  /* Control indent here */
+  margin-bottom: 0.25rem;
+}
+
+/* Nested lists */
+.ql-editor li>ul,
+.ql-editor li>ol {
+  margin-left: 1rem !important;
+}
+
+/* Bigger bullets */
+.ql-editor ul>li::marker {
+  font-size: 1.5em;
+  color: var(--text-color);
+  line-height: 1;
+  /* reset line-height for marker to avoid height issues */
+}
+
+/* Numbered list margin */
+.ql-editor ol {
+  margin-left: 0.75rem !important;
+}
