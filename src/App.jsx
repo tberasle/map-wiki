@@ -8,6 +8,7 @@ import AtlasView from './components/AtlasView';
 import VisualEffects from './components/VisualEffects';
 import { sfx } from './utils/SoundManager';
 import StorageManager from './utils/StorageManager';
+import ProjectLoader from './utils/ProjectLoader';
 import html2canvas from 'html2canvas';
 import './index.css';
 
@@ -37,7 +38,7 @@ function App() {
   const [transitionMode, setTransitionMode] = useState(null); // 'zooming-in' | 'zooming-out' | null
   const [transitionOrigin, setTransitionOrigin] = useState(null); // { x, y } in percentages
 
-  const [isGlobalEditMode, setIsGlobalEditMode] = useState(true);
+  const [isGlobalEditMode, setIsGlobalEditMode] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('map-wiki-theme');
     return saved ? saved === 'dark' : true;
@@ -142,42 +143,7 @@ function App() {
         // Using relative path from src/App.jsx to root/Sample Projects
         const modules = import.meta.glob('../Sample Projects/*.json');
 
-        let newSamples = [];
-
-        for (const path in modules) {
-          try {
-            const mod = await modules[path]();
-            const projectData = mod.default || mod;
-
-            if (!projectData || !projectData.id) {
-              console.warn("Skipping invalid sample:", path);
-              continue;
-            }
-
-            // Check if project already exists in IDB
-            const exists = await StorageManager.projectExists(projectData.id);
-
-            if (!exists) {
-              // Ensure data has required fields
-              const safeData = {
-                ...projectData,
-                isDarkMode: projectData.isDarkMode ?? true,
-                rootStarSettings: projectData.rootStarSettings || DEFAULT_STAR_SETTINGS
-              };
-
-              await StorageManager.saveProject(safeData);
-              console.log("Imported sample:", projectData.name);
-
-              newSamples.push({
-                id: safeData.id,
-                name: safeData.name,
-                lastModified: safeData.lastModified || Date.now()
-              });
-            }
-          } catch (err) {
-            console.error("Error processing sample:", path, err);
-          }
-        }
+        const newSamples = await ProjectLoader.loadSampleProjects(modules);
 
         if (newSamples.length > 0) {
           setProjects(prev => {
@@ -287,6 +253,14 @@ function App() {
         alert("Failed to delete project: " + err.message);
       }
     }
+  };
+
+  const handleRenameProject = (id, newName) => {
+    const updatedProjects = projects.map(p =>
+      p.id === id ? { ...p, name: newName, lastModified: Date.now() } : p
+    );
+    setProjects(updatedProjects);
+    localStorage.setItem('map-wiki-index', JSON.stringify(updatedProjects));
   };
 
   const handleImportProject = (e) => {
@@ -643,6 +617,7 @@ function App() {
         onOpenProject={handleLoadProject}
         onDeleteProject={handleDeleteProject}
         onImportProject={handleImportProject}
+        onRenameProject={handleRenameProject}
       />
     );
   }

@@ -1,9 +1,28 @@
-import React, { useState } from 'react';
-import { Plus, FolderOpen, Trash2, Upload, Map as MapIcon, Clock } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, FolderOpen, Trash2, Upload, Map as MapIcon, Clock, Pencil } from 'lucide-react';
 
-const Dashboard = ({ projects, onCreateProject, onOpenProject, onDeleteProject, onImportProject }) => {
+const Dashboard = ({ projects, onCreateProject, onOpenProject, onDeleteProject, onImportProject, onRenameProject }) => {
     const [newProjectName, setNewProjectName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    const [editingProjectId, setEditingProjectId] = useState(null);
+    const [editingName, setEditingName] = useState('');
+    const editInputRef = useRef(null);
+
+    useEffect(() => {
+        if (editingProjectId && editInputRef.current) {
+            editInputRef.current.focus();
+            editInputRef.current.select();
+        }
+    }, [editingProjectId]);
+
+    const handleRename = (id) => {
+        const trimmed = editingName.trim();
+        if (trimmed && onRenameProject) {
+            onRenameProject(id, trimmed);
+        }
+        setEditingProjectId(null);
+        setEditingName('');
+    };
 
     const handleCreate = (e) => {
         e.preventDefault();
@@ -122,24 +141,67 @@ const Dashboard = ({ projects, onCreateProject, onOpenProject, onDeleteProject, 
                                     e.currentTarget.style.borderColor = 'var(--border-color)';
                                 }}
                             >
-                                <div>
-                                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>{project.name}</h3>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    {editingProjectId === project.id ? (
+                                        <input
+                                            ref={editInputRef}
+                                            type="text"
+                                            value={editingName}
+                                            onChange={(e) => setEditingName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleRename(project.id);
+                                                if (e.key === 'Escape') { setEditingProjectId(null); setEditingName(''); }
+                                            }}
+                                            onBlur={() => handleRename(project.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{
+                                                fontSize: '1.2rem',
+                                                fontWeight: 600,
+                                                width: '100%',
+                                                padding: '0.25rem 0.5rem',
+                                                margin: '0 0 0.5rem 0',
+                                                backgroundColor: 'var(--bg-color)',
+                                                border: '1px solid var(--primary-color)',
+                                                borderRadius: '0.375rem',
+                                                color: 'var(--text-color)',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                    ) : (
+                                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>{project.name}</h3>
+                                    )}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', opacity: 0.7 }}>
                                         <Clock size={14} />
                                         Last modified: {formatDate(project.lastModified)}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteProject(project.id);
-                                    }}
-                                    className="icon-btn"
-                                    title="Delete Project"
-                                    style={{ color: '#ef4444', padding: '0.75rem' }}
-                                >
-                                    <Trash2 size={20} />
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingProjectId(project.id);
+                                            setEditingName(project.name);
+                                        }}
+                                        className="icon-btn"
+                                        title="Rename Project"
+                                        style={{ color: 'var(--text-color)', padding: '0.75rem', opacity: 0.6, transition: 'opacity 0.2s' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = 0.6}
+                                    >
+                                        <Pencil size={18} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteProject(project.id);
+                                        }}
+                                        className="icon-btn"
+                                        title="Delete Project"
+                                        style={{ color: '#ef4444', padding: '0.75rem' }}
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
