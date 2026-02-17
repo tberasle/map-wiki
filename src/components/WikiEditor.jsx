@@ -5,7 +5,7 @@ import { X, Save, Upload, Edit2, Trash2 } from 'lucide-react';
 import { ICONS, COLORS } from '../utils/constants';
 import { sfx } from '../utils/SoundManager';
 
-const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSetEditing, onDelete, items, onRemoveConnection, isGlobalEditMode }) => {
+const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSetEditing, onDelete, items, onRemoveConnection, isGlobalEditMode, isVisible = true, onExited }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [mapImage, setMapImage] = useState(null);
@@ -25,6 +25,8 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
         }
     }, [selectedPin]);
 
+    // ... (rest of component logic)
+
     const handleSave = () => {
         onSave(selectedPin.id, { title, content, mapImage, icon, color, showLabel });
     };
@@ -43,9 +45,29 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
     if (!selectedPin) return null;
 
     return (
-        <div className="wiki-sidebar glass-panel" style={{ width: '400px', right: 0, position: 'absolute', height: '100%', borderLeft: '1px solid var(--border-color)', borderRight: 'none', display: 'flex', flexDirection: 'column' }}>
+        <div
+            className="wiki-sidebar glass-panel"
+            style={{
+                width: '400px',
+                right: 0,
+                position: 'absolute',
+                height: '100%',
+                borderLeft: '1px solid var(--border-color)',
+                borderRight: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
+                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                zIndex: 40 // Ensure above map but below floating toggle (30) - wait toggle is 30. Sidebar is ?
+            }}
+            onTransitionEnd={() => {
+                if (!isVisible && onExited) {
+                    onExited();
+                }
+            }}
+        >
             <div className="sidebar-header">
-                <h2>{isEditing ? 'Edit Location' : 'Location Details'}</h2>
+                <h2 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: color }}>{title || 'Untitled'}</h2>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {isGlobalEditMode && (
                         <button
@@ -80,9 +102,9 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
                 </div>
             </div>
 
-            <div className="sidebar-content" style={{ flex: 1, overflowY: 'auto' }}>
+            <div className="sidebar-content" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
                 <div className="form-group">
-                    {isEditing ? (
+                    {isEditing && (
                         <>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Title</label>
                             <input
@@ -92,8 +114,6 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
                                 placeholder="Location Name"
                             />
                         </>
-                    ) : (
-                        <h1 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', color: color }}>{title || 'Untitled'}</h1>
                     )}
                 </div>
 

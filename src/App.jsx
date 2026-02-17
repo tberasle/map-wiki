@@ -29,12 +29,18 @@ function App() {
   const [items, setItems] = useState([]); // Flat list of all items
   const [currentViewId, setCurrentViewId] = useState('root');
   const [rootMapImage, setRootMapImage] = useState(null);
+
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [activeEditorItem, setActiveEditorItem] = useState(null); // For animation
+  const [isWikiVisible, setIsWikiVisible] = useState(false);
   const [transitionMode, setTransitionMode] = useState(null); // 'zooming-in' | 'zooming-out' | null
   const [transitionOrigin, setTransitionOrigin] = useState(null); // { x, y } in percentages
 
   const [isGlobalEditMode, setIsGlobalEditMode] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('map-wiki-theme');
+    return saved ? saved === 'dark' : true;
+  });
   const [starSettings, setStarSettings] = useState({
     starColor: '#ffffff',
     bgColor: 'transparent',
@@ -107,6 +113,11 @@ function App() {
       localStorage.setItem('map-wiki-index', JSON.stringify(updatedProjects));
     }
   }, [items, rootMapImage, isDarkMode, currentProjectId, viewMode]);
+
+  // Persist Theme Preference
+  useEffect(() => {
+    localStorage.setItem('map-wiki-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   // Project Management Functions
   const handleCreateProject = (name) => {
@@ -227,6 +238,31 @@ function App() {
     }
   }, [currentViewId, items, rootMapImage]);
 
+
+  // Manage WikiEditor visibility animation
+  useEffect(() => {
+    if (selectedItemId) {
+      const item = items.find(i => i.id === selectedItemId);
+      if (item) {
+        setActiveEditorItem(item);
+        // Small delay to ensure render happens before transition class is applied
+        setTimeout(() => setIsWikiVisible(true), 10);
+      }
+    } else {
+      setIsWikiVisible(false);
+    }
+  }, [selectedItemId, items]);
+
+  // Keep editor content fresh while open
+  useEffect(() => {
+    if (isWikiVisible && selectedItemId && activeEditorItem && activeEditorItem.id === selectedItemId) {
+      const currentItem = items.find(i => i.id === selectedItemId);
+      if (currentItem && currentItem !== activeEditorItem) {
+        setActiveEditorItem(currentItem);
+      }
+    }
+  }, [items, isWikiVisible, selectedItemId, activeEditorItem]);
+
   const handleDeleteMap = () => {
     if (window.confirm('Are you sure you want to delete the current map image? Pins will remain.')) {
       if (currentViewId === 'root') {
@@ -263,18 +299,10 @@ function App() {
     });
   };
 
-  const [transitionSnapshot, setTransitionSnapshot] = useState(null);
-
   const handleNavigate = (targetId, direction, origin = null) => {
-    // 1. Capture Snapshot of current view (for Phase A animation)
-    setTransitionSnapshot({
-      pins: items.filter(i => i.parentId === currentViewId),
-      mapImage: getCurrentMapImage()
-    });
-
     const previousViewId = currentViewId;
 
-    // 2. Setup Phase A (Exit)
+    // 1. Setup Phase A (Exit) - animates the CURRENT content in-place
     if (direction === 'in') {
       setTransitionOrigin(origin || { x: 50, y: 50 });
       setTransitionMode('zooming-in');
@@ -288,26 +316,25 @@ function App() {
       setTransitionMode('zooming-out');
     }
 
-    // 3. Switch View State IMMEDIATELY (Background)
-    setCurrentViewId(targetId);
     setSelectedItemId(null);
+    // DON'T change currentViewId yet - let the exit animation play on actual content
 
-    // 4. Wait for Phase A to complete (Exit Duration)
+    // 2. Wait for Phase A to complete, THEN switch content
     setTimeout(() => {
-      // 5. Setup Phase B (Enter)
+      // Switch view now (content is invisible at this point - opacity 0 from exit animation)
+      setCurrentViewId(targetId);
+
+      // 3. Setup Phase B (Enter) - animates the NEW content in
       if (direction === 'in') {
-        // entering-in: origin is already set correctly from click
         setTransitionMode('entering-in');
       } else {
-        // entering-out: origin is already set correctly from childItem
         setTransitionMode('entering-out');
       }
 
-      // 6. Wait for Phase B to complete
+      // 4. Wait for Phase B to complete
       setTimeout(() => {
         setTransitionMode(null);
         setTransitionOrigin(null);
-        setTransitionSnapshot(null);
       }, 500);
 
     }, 500);
@@ -348,6 +375,20 @@ function App() {
     }
   };
 
+  // Delete key shortcut
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' && selectedItemId && !transitionMode) {
+        // Don't delete if user is typing in an input or textarea
+        const tag = document.activeElement?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        handleDeleteLocation(selectedItemId);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItemId, transitionMode, items]);
+
   // Breadcrumb navigation logic
   const getBreadcrumbs = () => {
     const path = [];
@@ -361,7 +402,7 @@ function App() {
         break; // Orphaned?
       }
     }
-    path.unshift({ id: 'root', title: 'Home' });
+    path.unshift({ id: 'root', title: 'Main Map' });
     return path;
   };
 
@@ -430,7 +471,7 @@ function App() {
 
   return (
     <div
-      className="app-container"
+      className={`app-container ${!isDarkMode ? 'light-mode' : ''}`}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
       onClick={() => setContextMenu({ ...contextMenu, visible: false })} // Close menu on global click
@@ -450,56 +491,7 @@ function App() {
         transition: 'background 0.5s, opacity 0.5s'
       }} />
 
-      {/* TRANSITION LAYER */}
-      {transitionMode && (() => {
-        const style = {};
-        if ((transitionMode === 'entering-in' || transitionMode === 'zooming-out') && transitionOrigin) {
-          const tx = transitionOrigin.x - 50;
-          const ty = transitionOrigin.y - 50;
-          style['--tx'] = `${tx}%`;
-          style['--ty'] = `${ty}%`;
-          style.transformOrigin = 'center center';
-        } else {
-          style.transformOrigin = transitionOrigin ? `${transitionOrigin.x}% ${transitionOrigin.y}%` : 'center center';
-        }
 
-        // Determine content for transition layer
-        let targetPins = [];
-        let targetMapImage = null;
-
-        if (transitionMode.startsWith('zooming')) {
-          // Phase A: Exit. SHOULD use snapshot, but fallback to current filtered items if snapshot failed.
-          if (transitionSnapshot) {
-            targetPins = transitionSnapshot.pins || [];
-            targetMapImage = transitionSnapshot.mapImage;
-            console.log("Rendering Zooming Layer with Snapshot:", { view: currentViewId, pins: targetPins.length, image: !!targetMapImage });
-          } else {
-            // Fallback: This might be wrong if currentViewId already changed, but better than nothing
-            targetPins = items.filter(i => i.parentId === currentViewId);
-            targetMapImage = getCurrentMapImage();
-            console.log("Rendering Zooming Layer with Fallback:", { view: currentViewId, pins: targetPins.length });
-          }
-        } else {
-          // Phase B: Enter. Always use current view (which should be the new target)
-          targetPins = items.filter(i => i.parentId === currentViewId);
-          targetMapImage = getCurrentMapImage();
-        }
-
-        style.opacity = 1; // Ensure visible for animation to handle fade out
-
-        return (
-          <div key={transitionMode} className={`transition-layer ${transitionMode}`} style={style}>
-            <MapCanvas
-              pins={targetPins}
-              mapImage={targetMapImage}
-              isGlobalEditMode={false}
-              onSelectPin={() => { }}
-            />
-          </div>
-        );
-      })()}
-
-      {/* Main Map Canvas - Hidden during transition to prevent ghosting */}
       <Sidebar
         pins={visibleItems}
         onSelectPin={(id) => { setSelectedItemId(id); }}
@@ -535,39 +527,50 @@ function App() {
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
         isDarkMode={isDarkMode}
         breadcrumbs={getBreadcrumbs()}
+        projectName={(projects.find(p => p.id === currentProjectId) || {}).name || 'Wiki Map'}
         onNavigate={setCurrentViewId}
         onBack={handleBackToDashboard}
         activeFilters={activeFilters}
         onToggleFilter={handleToggleFilter}
         onOpenAtlas={() => setShowAtlas(true)}
         onExportImage={handleExportImage}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
         isGlobalEditMode={isGlobalEditMode}
         onToggleGlobalEdit={() => setIsGlobalEditMode(!isGlobalEditMode)}
         starSettings={starSettings}
         onUpdateStarSettings={setStarSettings}
       />
 
-      <div style={{
-        opacity: transitionMode ? 0 : 1,
-        transition: 'opacity 0.1s',
-        flex: 1,
-        display: 'flex',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
+      {/* Map area - no separate transition layer, MapCanvas handles its own animations */}
+      <div style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden' }}>
+        {/* Floating View/Edit Toggle */}
+        <div
+          className="toggle-switch"
+          onClick={() => { sfx.playUiSelect(); setIsGlobalEditMode(!isGlobalEditMode); }}
+          title={isGlobalEditMode ? "Switch to View Mode" : "Switch to Edit Mode"}
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            left: '1rem',
+            zIndex: 30,
+          }}
+        >
+          <div className={`toggle-option ${!isGlobalEditMode ? 'active' : ''}`}>View</div>
+          <div className={`toggle-option ${isGlobalEditMode ? 'active' : ''}`}>Edit</div>
+          <div className={`toggle-slider ${isGlobalEditMode ? 'right' : 'left'}`} />
+        </div>
+
         <MapCanvas
           mapImage={getCurrentMapImage()}
           pins={visibleItems}
           onSelectPin={(id, origin) => {
             if (transitionMode) return;
-            // If in connecting mode
             if (connectingSourceId) {
               if (id && id !== connectingSourceId) {
-                // Create connection
                 setItems(prev => prev.map(item => {
                   if (item.id === connectingSourceId) {
                     const connections = item.connections || [];
-                    // Toggle connection
                     if (connections.includes(id)) {
                       return { ...item, connections: connections.filter(c => c !== id) };
                     }
@@ -577,12 +580,11 @@ function App() {
                 }));
                 sfx.playUiSelect();
               }
-              setConnectingSourceId(null); // Exit mode
+              setConnectingSourceId(null);
               return;
             }
 
             if (selectedItemId === id) {
-              // Enter sub-location on second click
               const item = items.find(i => i.id === id);
               if (item && item.mapImage) {
                 sfx.playEnterMap();
@@ -602,8 +604,10 @@ function App() {
           }}
           transitionMode={transitionMode}
           transitionOrigin={transitionOrigin}
+          isGlobalEditMode={isGlobalEditMode}
         />
       </div>
+
 
       <ContextMenu
         {...contextMenu}
@@ -628,39 +632,41 @@ function App() {
       />
 
       {/* Top Left Controls (Back Button) */}
-      {currentViewId !== 'root' && (
-        <div style={{ position: 'absolute', top: '1rem', left: '320px', zIndex: 100 }}>
-          <button
-            className="btn-primary"
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              color: 'white',
-              border: '1px solid var(--border-color)',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontWeight: '600',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-            onClick={() => {
-              const currentItem = items.find(i => i.id === currentViewId);
-              if (currentItem) {
-                handleNavigate(currentItem.parentId, 'out');
-              } else {
-                handleNavigate('root', 'out');
-              }
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-            Back
-          </button>
-        </div>
-      )}
+      {
+        currentViewId !== 'root' && (
+          <div style={{ position: 'absolute', top: '1rem', left: '320px', zIndex: 100 }}>
+            <button
+              className="btn-primary"
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                color: 'white',
+                border: '1px solid var(--border-color)',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontWeight: '600',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              onClick={() => {
+                const currentItem = items.find(i => i.id === currentViewId);
+                if (currentItem) {
+                  handleNavigate(currentItem.parentId, 'out');
+                } else {
+                  handleNavigate('root', 'out');
+                }
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Back
+            </button>
+          </div>
+        )
+      }
 
       {/* Top Right Controls */}
       <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 100, display: 'flex', gap: '0.5rem' }}>
@@ -711,41 +717,47 @@ function App() {
         )}
       </div>
 
-      {showAtlas && (
-        <AtlasView
-          items={items}
-          currentViewId={currentViewId}
-          onNavigate={setCurrentViewId}
-          onSelect={setSelectedItemId}
-          onClose={() => setShowAtlas(false)}
-        />
-      )}
+      {
+        showAtlas && (
+          <AtlasView
+            items={items}
+            currentViewId={currentViewId}
+            onNavigate={setCurrentViewId}
+            onSelect={setSelectedItemId}
+            onClose={() => setShowAtlas(false)}
+          />
+        )
+      }
 
-      {selectedItem && (
-        <WikiEditor
-          selectedPin={selectedItem}
-          isEditing={isGlobalEditMode}
-          onClose={() => setSelectedItemId(null)}
-          onDelete={() => handleDeleteLocation(selectedItem.id)}
-          items={items}
-          onRemoveConnection={(targetId) => {
-            setItems(prev => prev.map(i => {
-              if (i.id === selectedItem.id) {
-                return { ...i, connections: (i.connections || []).filter(c => c !== targetId) };
-              }
-              return i;
-            }));
-          }}
-          onSave={(id, updates) => {
-            setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
-          }}
-          onEnterMap={(id) => {
-            handleNavigate(id, 'in');
-          }}
-          isGlobalEditMode={isGlobalEditMode}
-        />
-      )}
-    </div>
+      {
+        activeEditorItem && (
+          <WikiEditor
+            selectedPin={activeEditorItem}
+            isVisible={isWikiVisible}
+            onExited={() => setActiveEditorItem(null)}
+            isEditing={isGlobalEditMode}
+            onClose={() => setSelectedItemId(null)}
+            onDelete={() => handleDeleteLocation(activeEditorItem.id)}
+            items={items}
+            onRemoveConnection={(targetId) => {
+              setItems(prev => prev.map(i => {
+                if (i.id === activeEditorItem.id) {
+                  return { ...i, connections: (i.connections || []).filter(c => c !== targetId) };
+                }
+                return i;
+              }));
+            }}
+            onSave={(id, updates) => {
+              setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+            }}
+            onEnterMap={(id) => {
+              handleNavigate(id, 'in');
+            }}
+            isGlobalEditMode={isGlobalEditMode}
+          />
+        )
+      }
+    </div >
   );
 }
 export default App;

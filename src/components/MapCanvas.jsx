@@ -9,6 +9,7 @@ const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, 
     const [draggingPinId, setDraggingPinId] = useState(null); // Track which pin is being dragged
     const containerRef = useRef(null);
     const clickStart = useRef({ x: 0, y: 0 });
+    const pinWasDragged = useRef(false);
 
 
     // ...
@@ -86,21 +87,12 @@ const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, 
     };
 
     const handlePinMouseDown = (e, pinId) => {
-        if (!isGlobalEditMode) return; // Only drag in global edit mode
-        if (!isEditing) return; // Only drag in edit mode (local) - Wait, do we want to allow moving pins without opening them? User asked for "Remove edit buttons from location level... global edit on/off". Maybe moving implies being in "Edit Mode". Let's stick to: Must be Global Edit Mode AND functionality enabled.
-        // Actually, if we remove local edit buttons, how do we move?
-        // "Global edit on off toggle".
-        // If Global Edit is ON, we should be able to drag pins.
-        // Previously: `if (!isEditing) return;` (Only drag if selected/editing).
-        // Let's keep that requirement? Or relax it? 
-        // If I toggle "Edit Mode", I expect to be able to drag things.
-        // I'll relax the `isEditing` check? 
-        // "Draggable Pins (in Edit Mode)" was a task.
-        // Let's keep it restricted for now to avoid accidental moves.
-        if (!isEditing) return;
-
+        // Only allow dragging in edit mode and if pin is already selected
+        if (!isGlobalEditMode) return;
+        if (selectedPinId !== pinId) return;
         e.stopPropagation();
         e.preventDefault();
+        pinWasDragged.current = false; // Reset on each mousedown
         setDraggingPinId(pinId);
     };
 
@@ -134,6 +126,7 @@ const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, 
                 const clampedY = Math.max(0, Math.min(100, percentY));
 
                 onPinMove(draggingPinId, clampedX, clampedY);
+                pinWasDragged.current = true; // Mark as dragged only when mouse actually moves
             }
             return;
         }
@@ -190,12 +183,14 @@ const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, 
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onClick={handleMapClick}
-            onContextMenu={(e) => e.preventDefault()} // Prevent context menu on canvas container
+            onContextMenu={(e) => e.preventDefault()}
         >
             <div
                 className={`transition-layer ${transitionMode || ''}`}
                 style={{
-                    transformOrigin: transitionOrigin ? `${transitionOrigin.x}% ${transitionOrigin.y}%` : 'center center'
+                    transformOrigin: transitionOrigin ? `${transitionOrigin.x}% ${transitionOrigin.y}%` : 'center center',
+                    '--tx': transitionOrigin ? `${transitionOrigin.x - 50}%` : '0',
+                    '--ty': transitionOrigin ? `${transitionOrigin.y - 50}%` : '0',
                 }}
             >
                 <div
@@ -254,6 +249,12 @@ const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, 
                                     disabled={!!transitionMode}
                                     onClick={(e) => {
                                         e.stopPropagation();
+
+                                        // Suppress click if pin was just dragged
+                                        if (pinWasDragged.current) {
+                                            pinWasDragged.current = false;
+                                            return;
+                                        }
 
                                         // Calculate origin relative to container
                                         if (containerRef.current) {

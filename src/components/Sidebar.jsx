@@ -23,7 +23,8 @@ const Sidebar = ({
     isGlobalEditMode,
     onToggleGlobalEdit,
     starSettings,
-    onUpdateStarSettings
+    onUpdateStarSettings,
+    projectName
 }) => {
     const [isMuted, setIsMuted] = useState(sfx.muted);
     const [searchQuery, setSearchQuery] = useState('');
@@ -53,25 +54,19 @@ const Sidebar = ({
                 </button>
                 <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
                     <MapIcon size={20} />
-                    Wiki Map
+                    {projectName || 'Wiki Map'}
                 </h2>
                 <div style={{ flex: 1 }} />
-                <div
-                    className="toggle-switch"
-                    onClick={() => { sfx.playUiSelect(); onToggleGlobalEdit(); }}
-                    onMouseEnter={() => sfx.playHover()}
-                    title={isGlobalEditMode ? "Switch to View Mode" : "Switch to Edit Mode"}
-                >
-                    <div className={`toggle-option ${!isGlobalEditMode ? 'active' : ''}`}>View</div>
-                    <div className={`toggle-option ${isGlobalEditMode ? 'active' : ''}`}>Edit</div>
-                    <div className={`toggle-slider ${isGlobalEditMode ? 'right' : 'left'}`} />
-                </div>
 
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', padding: '0 1rem', marginBottom: '1rem' }}>
                 <button
                     className="icon-btn"
                     onClick={toggleMute}
                     onMouseEnter={() => sfx.playHover()}
                     title={isMuted ? "Unmute SFX" : "Mute SFX"}
+                    style={{ flex: 1, justifyContent: 'center', backgroundColor: 'var(--secondary-color)', borderRadius: '0.5rem', padding: '0.5rem', color: 'var(--text-color)' }}
                 >
                     {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                 </button>
@@ -80,9 +75,11 @@ const Sidebar = ({
                     onClick={onToggleTheme}
                     onMouseEnter={() => sfx.playHover()}
                     title="Toggle Theme"
+                    style={{ flex: 1, justifyContent: 'center', backgroundColor: 'var(--secondary-color)', borderRadius: '0.5rem', padding: '0.5rem', color: 'var(--text-color)' }}
                 >
                     {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
+
             </div>
 
             {/* Breadcrumbs */}
@@ -201,16 +198,16 @@ const Sidebar = ({
             </div>
 
             <div className="sidebar-actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', padding: '0 1rem' }}>
-                <button
-                    className="btn-secondary"
-                    onClick={onOpenAtlas}
-                    title="Open Atlas View"
-                    onMouseEnter={() => sfx.playHover()}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
-                >
-                    <MapIcon size={16} /> Open Atlas
-                </button>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <button className="btn-small" onClick={onOpenAtlas} title="Open Atlas View" onMouseEnter={() => sfx.playHover()}>
+                        <MapIcon size={16} /> Atlas
+                    </button>
+                    <button className="btn-small" onClick={onExportImage} title="Export Map as PNG" onMouseEnter={() => sfx.playHover()}>
+                        <Image size={16} /> Download PNG
+                    </button>
+                </div>
+                <label style={{ fontSize: '0.75rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>Map Configuration (JSON)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <button className="btn-small" onClick={onExport} title="Export JSON" onMouseEnter={() => sfx.playHover()}>
                         <Download size={16} /> Export
                     </button>
@@ -219,15 +216,6 @@ const Sidebar = ({
                         <input type="file" onChange={onImport} accept=".json" style={{ display: 'none' }} />
                     </label>
                 </div>
-                <button
-                    className="btn-secondary"
-                    onClick={onExportImage}
-                    title="Export Map as PNG"
-                    onMouseEnter={() => sfx.playHover()}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
-                >
-                    <Image size={16} /> Export Image
-                </button>
             </div>
 
             <div className="sidebar-content">
@@ -254,8 +242,13 @@ const Sidebar = ({
                             onMouseEnter={() => sfx.playHover()}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                {pin.mapImage ? <MapIcon size={16} color="var(--accent-color)" /> : <div style={{ width: 16 }} />}
+                                {(() => {
+                                    const iconDef = ICONS.find(i => i.id === pin.icon) || ICONS[0];
+                                    const IconComp = iconDef.icon;
+                                    return <IconComp size={16} color={pin.color || '#ef4444'} />;
+                                })()}
                                 <span style={{ fontWeight: '500' }}>{pin.title || 'Untitled'}</span>
+                                {pin.mapImage && <MapIcon size={12} color="var(--accent-color)" />}
                             </div>
                             {isGlobalEditMode && (
                                 <button

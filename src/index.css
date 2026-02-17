@@ -10,6 +10,17 @@
   --pin-color: #ef4444;
 }
 
+.light-mode {
+  --bg-color: #f8fafc;
+  --text-color: #0f172a;
+  --primary-color: #2563eb;
+  --secondary-color: #e2e8f0;
+  --accent-color: #3b82f6;
+  --border-color: #cbd5e1;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.1);
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -255,6 +266,25 @@ input[type="text"]:focus {
   background-color: var(--accent-color);
 }
 
+.btn-small {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-small:hover {
+  background-color: var(--border-color);
+  border-color: var(--text-color);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -378,34 +408,35 @@ input[type="text"]:focus {
   pointer-events: none;
   width: 100%;
   height: 100%;
+  display: flex;
   transform-origin: center center;
 }
 
 /* Exit Animations (Keyframe based) */
 .transition-layer.zooming-in {
-  animation: zoomInExit 0.5s cubic-bezier(0.5, 0, 1, 1) forwards;
+  animation: zoomInExit 0.5s cubic-bezier(0.5, 0, 1, 1) both;
   pointer-events: none;
 }
 
 .transition-layer.zooming-out {
-  animation: zoomOutExit 0.5s cubic-bezier(0.5, 0, 1, 1) forwards;
+  animation: zoomOutExit 0.5s cubic-bezier(0.5, 0, 1, 1) both;
   pointer-events: none;
 }
 
 /* Enter Animations (Keyframe based) */
 .transition-layer.entering-in {
-  animation: zoomInEnter 0.5s cubic-bezier(0, 0, 0.2, 1) forwards;
+  animation: zoomInEnter 0.5s cubic-bezier(0, 0, 0.2, 1) both;
   pointer-events: none;
 }
 
 .transition-layer.entering-out {
-  animation: zoomOutEnter 0.5s cubic-bezier(0, 0, 0.2, 1) forwards;
+  animation: zoomOutEnter 0.5s cubic-bezier(0, 0, 0.2, 1) both;
   pointer-events: none;
 }
 
 @keyframes zoomInEnter {
   from {
-    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.17);
+    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.35);
     opacity: 0;
   }
 
@@ -417,7 +448,7 @@ input[type="text"]:focus {
 
 @keyframes zoomOutEnter {
   from {
-    transform: scale(6);
+    transform: scale(3);
     opacity: 0;
   }
 
@@ -434,7 +465,7 @@ input[type="text"]:focus {
   }
 
   to {
-    transform: scale(6);
+    transform: scale(3);
     opacity: 0;
   }
 }
@@ -446,7 +477,7 @@ input[type="text"]:focus {
   }
 
   to {
-    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.17);
+    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.35);
     opacity: 0;
   }
 }
