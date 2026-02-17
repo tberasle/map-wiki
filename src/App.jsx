@@ -534,8 +534,6 @@ function App() {
         onToggleFilter={handleToggleFilter}
         onOpenAtlas={() => setShowAtlas(true)}
         onExportImage={handleExportImage}
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
         isGlobalEditMode={isGlobalEditMode}
         onToggleGlobalEdit={() => setIsGlobalEditMode(!isGlobalEditMode)}
         starSettings={starSettings}
