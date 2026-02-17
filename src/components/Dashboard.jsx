@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, FolderOpen, Trash2, Upload, Map as MapIcon, Clock, Pencil } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, Upload, Map as MapIcon, Clock } from 'lucide-react';
 
 const Dashboard = ({ projects, onCreateProject, onOpenProject, onDeleteProject, onImportProject, onRenameProject }) => {
     const [newProjectName, setNewProjectName] = useState('');
@@ -182,13 +182,26 @@ const Dashboard = ({ projects, onCreateProject, onOpenProject, onDeleteProject, 
                                             setEditingProjectId(project.id);
                                             setEditingName(project.name);
                                         }}
-                                        className="icon-btn"
                                         title="Rename Project"
-                                        style={{ color: 'var(--text-color)', padding: '0.75rem', opacity: 0.6, transition: 'opacity 0.2s' }}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--text-color)',
+                                            padding: '0.75rem',
+                                            opacity: 0.6,
+                                            transition: 'opacity 0.2s',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
                                         onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
                                         onMouseLeave={(e) => e.currentTarget.style.opacity = 0.6}
                                     >
-                                        <Pencil size={18} />
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                            <path d="m15 5 4 4" />
+                                        </svg>
                                     </button>
                                     <button
                                         onClick={(e) => {
