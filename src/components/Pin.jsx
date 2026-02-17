@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Map as MapIcon, MapPin } from 'lucide-react'; // MapIcon is used for sub-map badge, MapPin as fallback
 import { ICONS } from '../utils/constants';
 import { sfx } from '../utils/SoundManager';
 
 const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onMouseDown, onContextMenu, disabled }) => {
+    const [isHovered, setIsHovered] = useState(false);
     if (!data) return null;
 
     // Safety check for ICONS
@@ -12,7 +13,18 @@ const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onM
     const IconComponent = iconDef ? iconDef.icon : MapPin;
 
     const hasSubMap = data.mapImage;
-    const pinScale = Math.max(0.1, 1 / scale); // Prevent divide by zero / extreme shrinking
+
+    // Size Multipliers
+    const sizeMultipliers = {
+        tiny: 0.5,
+        small: 0.75,
+        medium: 1,
+        large: 1.5,
+        extraLarge: 2.5
+    };
+    const sizeMultiplier = sizeMultipliers[data.size] || 1;
+
+    const pinScale = Math.max(0.1, (1 / scale) * sizeMultiplier); // Apply size multiplier
 
     // Determine anchor point based on icon type
     const CENTER_ANCHOR_ICONS = ['star', 'planet', 'spaceship', 'danger', 'energy', 'shield', 'fuel'];
@@ -22,9 +34,11 @@ const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onM
     // If bottom anchored, we want the bottom-center of the icon to be at (x,y).
     // The Label is now absolute, so it doesn't affect the size of the container.
 
+    const effectiveScale = isHovered ? pinScale * 1.2 : pinScale;
+
     const transformStyle = isCenterAnchored
-        ? `translate(-50%, -50%) scale(${pinScale})`
-        : `translate(-50%, -100%) scale(${pinScale})`;
+        ? `translate(-50%, -50%) scale(${effectiveScale})`
+        : `translate(-50%, -100%) scale(${effectiveScale})`;
 
     const transformOriginStyle = isCenterAnchored ? '50% 50%' : '50% 100%';
 
@@ -41,7 +55,8 @@ const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onM
                 zIndex: isSelected ? 100 : 1,
                 cursor: isEditing ? 'move' : (disabled ? 'default' : 'pointer'),
                 pointerEvents: disabled ? 'none' : 'auto',
-                opacity: disabled ? 0.7 : 1
+                opacity: disabled ? 0.7 : 1,
+                transition: 'transform 0.1s ease-out' // Smooth hover
             }}
             onClick={(e) => {
                 if (disabled) return;
@@ -54,11 +69,13 @@ const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onM
                 if (onClick) onClick(e);
             }}
             onMouseEnter={() => {
+                setIsHovered(true);
                 if (disabled) return;
                 try {
                     sfx.playHover();
                 } catch (e) { /* ignore */ }
             }}
+            onMouseLeave={() => setIsHovered(false)}
             onMouseDown={onMouseDown}
             onContextMenu={(e) => {
                 e.stopPropagation();
@@ -96,13 +113,17 @@ const Pin = ({ x, y, data, isSelected, onClick, color, scale = 1, isEditing, onM
                     position: 'absolute',
                     top: '100%',
                     left: '50%',
-                    transform: 'translateX(-50%)',
-                    marginTop: '4px'
+                    // Counter-scale the label so it stays readable (1x) regardless of pin size OR map zoom
+                    transform: `translateX(-50%) scale(${1 / ((scale * effectiveScale) || 1)})`,
+                    transformOrigin: 'top center',
+                    marginTop: '4px',
+                    width: 'max-content', // Ensure it doesn't wrap unnecessarily
+                    pointerEvents: 'none' // Click-through to pin usually
                 }}
             >
                 {data.title || 'Untitled'}
             </div>
-        </div>
+        </div >
     );
 };
 

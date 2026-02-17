@@ -5,8 +5,9 @@ import WikiEditor from './components/WikiEditor';
 import ContextMenu from './components/ContextMenu';
 import Dashboard from './components/Dashboard';
 import AtlasView from './components/AtlasView';
-import Starfield from './components/Starfield';
+import VisualEffects from './components/VisualEffects';
 import { sfx } from './utils/SoundManager';
+import StorageManager from './utils/StorageManager';
 import html2canvas from 'html2canvas';
 import './index.css';
 
@@ -41,14 +42,17 @@ function App() {
     const saved = localStorage.getItem('map-wiki-theme');
     return saved ? saved === 'dark' : true;
   });
-  const [starSettings, setStarSettings] = useState({
+
+  const DEFAULT_STAR_SETTINGS = {
     starColor: '#ffffff',
     bgColor: 'transparent',
-    speed: 0, // Default to static (0 speed) as requested
-    twinkleSpeed: 0.5, // New setting
-    nebulaColor: '#4c1d95', // hex for purple-900 approx
-    nebulaIntensity: 0.2
-  });
+    speed: 0,
+    twinkleSpeed: 0.5,
+    nebulaColor: '#4c1d95',
+    nebulaIntensity: 0.3 // Updated default to 30%
+  };
+
+  const [rootStarSettings, setRootStarSettings] = useState(DEFAULT_STAR_SETTINGS);
 
 
   // Context Menu State
@@ -93,26 +97,111 @@ function App() {
   }, []);
 
   // Auto-Save Current Project
+  // Auto-Save Current Project (Debounced)
   useEffect(() => {
     if (currentProjectId && viewMode === 'editor') {
       const dataToSave = {
+        id: currentProjectId, // Required for keyPath
+        name: (projects.find(p => p.id === currentProjectId) || {}).name, // Store name in object too? Optional but good for backup
         items,
         rootMapImage,
-        isDarkMode
+        isDarkMode,
+        rootStarSettings
       };
-      localStorage.setItem(`map-wiki-project-${currentProjectId}`, JSON.stringify(dataToSave));
 
-      // Update Last Modified in Index (Debounced ideally, but this is fine for now)
-      const updatedProjects = projects.map(p =>
-        p.id === currentProjectId ? { ...p, lastModified: Date.now() } : p
-      );
-      // Only update state/storage if time changed significantly to avoid spamming? 
-      // Actually, preventing infinite loops is key.
-      // Let's NOT update 'projects' state here to avoid re-renders. 
-      // Just update localStorage index silently.
-      localStorage.setItem('map-wiki-index', JSON.stringify(updatedProjects));
+      const save = async () => {
+        try {
+          await StorageManager.saveProject(dataToSave);
+
+          // Update Last Modified in Index (localStorage)
+          const updatedProjects = projects.map(p =>
+            p.id === currentProjectId ? { ...p, lastModified: Date.now() } : p
+          );
+          // Only update LS index if needed, don't trigger state update loop
+          localStorage.setItem('map-wiki-index', JSON.stringify(updatedProjects));
+        } catch (err) {
+          if (err.name === 'QuotaExceededError') {
+            alert("Storage Quota Exceeded! Please delete some projects or reduce image sizes.");
+          } else {
+            console.error("Auto-save failed:", err);
+          }
+        }
+      };
+
+      // Debounce save (1s)
+      const timeoutId = setTimeout(save, 1000);
+      return () => clearTimeout(timeoutId);
     }
-  }, [items, rootMapImage, isDarkMode, currentProjectId, viewMode]);
+  }, [items, rootMapImage, isDarkMode, rootStarSettings, currentProjectId, viewMode]);
+
+  // Auto-Load Sample Projects
+  useEffect(() => {
+    const loadSamples = async () => {
+      try {
+        // Glob import all JSONs from Sample Projects folder
+        // Using relative path from src/App.jsx to root/Sample Projects
+        const modules = import.meta.glob('../Sample Projects/*.json');
+
+        let newSamples = [];
+
+        for (const path in modules) {
+          try {
+            const mod = await modules[path]();
+            const projectData = mod.default || mod;
+
+            if (!projectData || !projectData.id) {
+              console.warn("Skipping invalid sample:", path);
+              continue;
+            }
+
+            // Check if project already exists in IDB
+            const exists = await StorageManager.projectExists(projectData.id);
+
+            if (!exists) {
+              // Ensure data has required fields
+              const safeData = {
+                ...projectData,
+                isDarkMode: projectData.isDarkMode ?? true,
+                rootStarSettings: projectData.rootStarSettings || DEFAULT_STAR_SETTINGS
+              };
+
+              await StorageManager.saveProject(safeData);
+              console.log("Imported sample:", projectData.name);
+
+              newSamples.push({
+                id: safeData.id,
+                name: safeData.name,
+                lastModified: safeData.lastModified || Date.now()
+              });
+            }
+          } catch (err) {
+            console.error("Error processing sample:", path, err);
+          }
+        }
+
+        if (newSamples.length > 0) {
+          setProjects(prev => {
+            // Filter duplicates just in case
+            const existingIds = new Set(prev.map(p => p.id));
+            const uniqueNew = newSamples.filter(s => !existingIds.has(s.id));
+
+            if (uniqueNew.length === 0) return prev;
+
+            const nextState = [...uniqueNew, ...prev];
+            localStorage.setItem('map-wiki-index', JSON.stringify(nextState));
+            return nextState;
+          });
+        }
+
+      } catch (err) {
+        console.error("Failed to load sample projects glob:", err);
+      }
+    };
+
+    // Small delay to ensure DB is ready? Not strictly needed but safe.
+    // Actually, requestIdleCallback would be nice, but setTimeout(..., 1000) is fine to avoid boot lag.
+    setTimeout(loadSamples, 1000);
+  }, []);
 
   // Persist Theme Preference
   useEffect(() => {
@@ -120,7 +209,7 @@ function App() {
   }, [isDarkMode]);
 
   // Project Management Functions
-  const handleCreateProject = (name) => {
+  const handleCreateProject = async (name) => {
     const newProject = {
       id: Date.now().toString(),
       name: name,
@@ -128,48 +217,75 @@ function App() {
     };
 
     // Initialize Empty Project Area
-    const emptyData = { items: [], rootMapImage: null, isDarkMode: true };
-    localStorage.setItem(`map-wiki-project-${newProject.id}`, JSON.stringify(emptyData));
+    const emptyData = {
+      id: newProject.id, // IDB Key
+      items: [],
+      rootMapImage: null,
+      isDarkMode: true,
+      rootStarSettings: DEFAULT_STAR_SETTINGS
+    };
 
-    // Update Index
-    const newIndex = [newProject, ...projects];
-    setProjects(newIndex);
-    localStorage.setItem('map-wiki-index', JSON.stringify(newIndex));
+    try {
+      await StorageManager.saveProject(emptyData);
 
-    // Open It
-    handleLoadProject(newProject.id);
-  };
+      // Update Index
+      const newIndex = [newProject, ...projects];
+      setProjects(newIndex);
+      localStorage.setItem('map-wiki-index', JSON.stringify(newIndex));
 
-  const handleLoadProject = (id) => {
-    const dataStr = localStorage.getItem(`map-wiki-project-${id}`);
-    if (dataStr) {
-      const data = JSON.parse(dataStr);
-      // Load State
-      setItems(data.items || []);
-      setRootMapImage(data.rootMapImage || null);
-      setIsDarkMode(data.isDarkMode !== undefined ? data.isDarkMode : true);
-
-      // Reset View State
-      setCurrentViewId('root');
-      setSelectedItemId(null);
-      setSelectedItemId(null);
-
-      setCurrentProjectId(id);
-      setViewMode('editor');
-    } else {
-      alert("Error: Project data not found!");
+      // Open It
+      await handleLoadProject(newProject.id);
+    } catch (err) {
+      alert("Failed to create project: " + err.message);
     }
   };
 
-  const handleDeleteProject = (id) => {
-    if (window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
-      // Remove Data
-      localStorage.removeItem(`map-wiki-project-${id}`);
+  const handleLoadProject = async (id) => {
+    try {
+      let data = await StorageManager.loadProject(id);
 
-      // Update Index
-      const newIndex = projects.filter(p => p.id !== id);
-      setProjects(newIndex);
-      localStorage.setItem('map-wiki-index', JSON.stringify(newIndex));
+      // Fallback: Try migration from LocalStorage if not found in IDB
+      if (!data) {
+        data = await StorageManager.migrateFromLocalStorage(id);
+      }
+
+      if (data) {
+        // Load State
+        setItems(data.items || []);
+        setRootMapImage(data.rootMapImage || null);
+        setIsDarkMode(data.isDarkMode !== undefined ? data.isDarkMode : true);
+        setRootStarSettings(data.rootStarSettings || DEFAULT_STAR_SETTINGS);
+
+        // Reset View State
+        setCurrentViewId('root');
+        setSelectedItemId(null);
+
+        setCurrentProjectId(id);
+        setViewMode('editor');
+      } else {
+        alert("Error: Project data not found!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load project from database.");
+    }
+  };
+
+  const handleDeleteProject = async (id) => {
+    if (window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
+      try {
+        // Remove Data from IDB
+        await StorageManager.deleteProject(id);
+        // Also try removing from LS just in case
+        localStorage.removeItem(`map-wiki-project-${id}`);
+
+        // Update Index
+        const newIndex = projects.filter(p => p.id !== id);
+        setProjects(newIndex);
+        localStorage.setItem('map-wiki-index', JSON.stringify(newIndex));
+      } catch (err) {
+        alert("Failed to delete project: " + err.message);
+      }
     }
   };
 
@@ -177,7 +293,7 @@ function App() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
           // Validate basic structure
@@ -190,7 +306,15 @@ function App() {
             lastModified: Date.now()
           };
 
-          localStorage.setItem(`map-wiki-project-${newProject.id}`, JSON.stringify(data));
+          const projectData = {
+            id: newProject.id,
+            items: data.items,
+            rootMapImage: data.rootMapImage,
+            isDarkMode: data.isDarkMode ?? true,
+            rootStarSettings: data.rootStarSettings || DEFAULT_STAR_SETTINGS
+          };
+
+          await StorageManager.saveProject(projectData);
 
           const newIndex = [newProject, ...projects];
           setProjects(newIndex);
@@ -456,6 +580,60 @@ function App() {
   });
   const selectedItem = items.find(i => i.id === selectedItemId);
 
+  // Recursive Visual Settings Resolution
+  const getEffectiveStarSettings = (viewId) => {
+    // 1. Start at the current view
+    let currentId = viewId;
+
+    // 2. Traverse up until settings are found
+    while (currentId !== 'root') {
+      const item = items.find(i => i.id === currentId);
+      if (item) {
+        if (item.starSettings) {
+          // Found explicit settings!
+          // Merge with defaults to ensure all keys exist
+          return { ...DEFAULT_STAR_SETTINGS, ...item.starSettings };
+        }
+        currentId = item.parentId; // Go up
+      } else {
+        break; // Orphaned?
+      }
+    }
+
+    // 3. Fallback to Root
+    return { ...DEFAULT_STAR_SETTINGS, ...rootStarSettings };
+  };
+
+  const currentStarSettings = getEffectiveStarSettings(currentViewId);
+
+  const handleUpdateStarSettings = (newSettings) => {
+    if (currentViewId === 'root') {
+      setRootStarSettings(newSettings);
+    } else {
+      // Update the CURRENT ITEM (the map container we are inside)
+      setItems(prev => prev.map(item =>
+        item.id === currentViewId ? { ...item, starSettings: newSettings } : item
+      ));
+    }
+  };
+
+  const handleResetStarSettings = () => {
+    if (window.confirm("Reset visual effects to default/inherited values?")) {
+      if (currentViewId === 'root') {
+        setRootStarSettings(DEFAULT_STAR_SETTINGS);
+      } else {
+        // Remove settings to trigger inheritance
+        setItems(prev => prev.map(item => {
+          if (item.id === currentViewId) {
+            const { starSettings, ...rest } = item;
+            return rest;
+          }
+          return item;
+        }));
+      }
+    }
+  };
+
   // RENDER
   if (viewMode === 'dashboard') {
     return (
@@ -477,19 +655,11 @@ function App() {
       onClick={() => setContextMenu({ ...contextMenu, visible: false })} // Close menu on global click
       style={{ backgroundColor: isDarkMode ? 'var(--bg-color)' : 'var(--bg-color)', color: 'var(--text-color)' }}
     >
-      <Starfield
+      <VisualEffects
         warpMode={transitionMode}
         origin={transitionOrigin}
-        settings={starSettings}
+        targetSettings={currentStarSettings}
       />
-      {/* Nebula Overlay (Optional, can be toggled) */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0,
-        background: `radial-gradient(circle at 50% 50%, ${starSettings.nebulaColor || '#4c1d95'}, transparent 70%)`,
-        opacity: starSettings.nebulaIntensity !== undefined ? starSettings.nebulaIntensity : 0.2,
-        mixBlendMode: 'screen',
-        transition: 'background 0.5s, opacity 0.5s'
-      }} />
 
 
       <Sidebar
@@ -536,8 +706,9 @@ function App() {
         onExportImage={handleExportImage}
         isGlobalEditMode={isGlobalEditMode}
         onToggleGlobalEdit={() => setIsGlobalEditMode(!isGlobalEditMode)}
-        starSettings={starSettings}
-        onUpdateStarSettings={setStarSettings}
+        starSettings={currentStarSettings}
+        onUpdateStarSettings={handleUpdateStarSettings}
+        onResetStarSettings={handleResetStarSettings}
       />
 
       {/* Map area - no separate transition layer, MapCanvas handles its own animations */}
@@ -549,7 +720,7 @@ function App() {
           title={isGlobalEditMode ? "Switch to View Mode" : "Switch to Edit Mode"}
           style={{
             position: 'absolute',
-            top: '1rem',
+            bottom: '1rem',
             left: '1rem',
             zIndex: 30,
           }}
@@ -669,7 +840,7 @@ function App() {
       {/* Top Right Controls */}
       <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 100, display: 'flex', gap: '0.5rem' }}>
         {/* Delete Map Button */}
-        {getCurrentMapImage() && (
+        {getCurrentMapImage() && isGlobalEditMode && !selectedItem && (
           <button
             className="btn-danger"
             style={{

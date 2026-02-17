@@ -24,6 +24,7 @@ const Sidebar = ({
     onToggleGlobalEdit,
     starSettings,
     onUpdateStarSettings,
+    onResetStarSettings,
     projectName
 }) => {
     const [isMuted, setIsMuted] = useState(sfx.muted);
@@ -46,7 +47,7 @@ const Sidebar = ({
                 <button
                     className="icon-btn"
                     onClick={onBack}
-                    onMouseEnter={() => sfx.playHover()}
+                    onMouseEnter={() => { }}
                     title="Back to Dashboard"
                     style={{ marginRight: '0.5rem' }}
                 >
@@ -64,7 +65,7 @@ const Sidebar = ({
                 <button
                     className="icon-btn"
                     onClick={toggleMute}
-                    onMouseEnter={() => sfx.playHover()}
+                    onMouseEnter={() => { }}
                     title={isMuted ? "Unmute SFX" : "Mute SFX"}
                     style={{ flex: 1, justifyContent: 'center', backgroundColor: 'var(--secondary-color)', borderRadius: '0.5rem', padding: '0.5rem', color: 'var(--text-color)' }}
                 >
@@ -73,7 +74,7 @@ const Sidebar = ({
                 <button
                     className="icon-btn"
                     onClick={onToggleTheme}
-                    onMouseEnter={() => sfx.playHover()}
+                    onMouseEnter={() => { }}
                     title="Toggle Theme"
                     style={{ flex: 1, justifyContent: 'center', backgroundColor: 'var(--secondary-color)', borderRadius: '0.5rem', padding: '0.5rem', color: 'var(--text-color)' }}
                 >
@@ -104,7 +105,7 @@ const Sidebar = ({
                                 opacity: index === breadcrumbs.length - 1 ? 1 : 0.8
                             }}
                             onClick={() => onNavigate(crumb.id)}
-                            onMouseEnter={() => sfx.playHover()}
+                            onMouseEnter={() => { }}
                         >
                             {crumb.title || 'Untitled'}
                         </span>
@@ -141,8 +142,8 @@ const Sidebar = ({
                     </div>
                     <button
                         className="icon-btn"
-                        onClick={() => { sfx.playUiSelect(); setShowFilters(!showFilters); }}
-                        onMouseEnter={() => sfx.playHover()}
+                        onClick={() => { setShowFilters(!showFilters); }}
+                        onMouseEnter={() => { }}
                         style={{
                             backgroundColor: showFilters || activeFilters.length > 0 ? 'var(--secondary-color)' : 'transparent',
                             border: showFilters || activeFilters.length > 0 ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
@@ -173,8 +174,8 @@ const Sidebar = ({
                             return (
                                 <button
                                     key={item.id}
-                                    onClick={() => { sfx.playUiSelect(); onToggleFilter(item.id); }}
-                                    onMouseEnter={() => sfx.playHover()}
+                                    onClick={() => { onToggleFilter(item.id); }}
+                                    onMouseEnter={() => { }}
                                     title={item.label}
                                     style={{
                                         display: 'flex',
@@ -199,19 +200,19 @@ const Sidebar = ({
 
             <div className="sidebar-actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', padding: '0 1rem' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <button className="btn-small" onClick={onOpenAtlas} title="Open Atlas View" onMouseEnter={() => sfx.playHover()}>
+                    <button className="btn-small" onClick={onOpenAtlas} title="Open Atlas View" onMouseEnter={() => { }}>
                         <MapIcon size={16} /> Atlas
                     </button>
-                    <button className="btn-small" onClick={onExportImage} title="Export Map as PNG" onMouseEnter={() => sfx.playHover()}>
+                    <button className="btn-small" onClick={onExportImage} title="Export Map as PNG" onMouseEnter={() => { }}>
                         <Image size={16} /> Download PNG
                     </button>
                 </div>
                 <label style={{ fontSize: '0.75rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>Map Configuration (JSON)</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <button className="btn-small" onClick={onExport} title="Export JSON" onMouseEnter={() => sfx.playHover()}>
+                    <button className="btn-small" onClick={onExport} title="Export JSON" onMouseEnter={() => { }}>
                         <Download size={16} /> Export
                     </button>
-                    <label className="btn-small" title="Import JSON" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onMouseEnter={() => sfx.playHover()}>
+                    <label className="btn-small" title="Import JSON" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onMouseEnter={() => { }}>
                         <Upload size={16} /> Import
                         <input type="file" onChange={onImport} accept=".json" style={{ display: 'none' }} />
                     </label>
@@ -238,8 +239,8 @@ const Sidebar = ({
                                 border: '1px solid var(--border-color)',
                                 borderLeft: pin.mapImage ? '4px solid var(--accent-color)' : '1px solid var(--border-color)'
                             }}
-                            onClick={() => { sfx.playUiSelect(); onSelectPin(pin.id); }}
-                            onMouseEnter={() => sfx.playHover()}
+                            onClick={() => { onSelectPin(pin.id); }}
+                            onMouseEnter={() => { }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 {(() => {
@@ -252,10 +253,10 @@ const Sidebar = ({
                             </div>
                             {isGlobalEditMode && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); sfx.playClick(); onDeletePin(pin.id); }}
+                                    onClick={(e) => { e.stopPropagation(); onDeletePin(pin.id); }}
                                     style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
                                     title="Delete Location"
-                                    onMouseEnter={() => sfx.playHover()}
+                                    onMouseEnter={() => { }}
                                 >
                                     <Trash2 size={14} />
                                 </button>
@@ -315,6 +316,30 @@ const Sidebar = ({
                             onChange={(e) => onUpdateStarSettings({ ...starSettings, speed: 0, twinkleSpeed: parseFloat(e.target.value) })}
                         />
                     </div>
+                    {onResetStarSettings && (
+                        <button
+                            className="btn-small"
+                            onClick={onResetStarSettings}
+                            style={{
+                                marginTop: '0.5rem',
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem',
+                                backgroundColor: 'transparent',
+                                border: '1px dashed var(--border-color)',
+                                color: 'var(--text-color)',
+                                opacity: 0.8,
+                                cursor: 'pointer'
+                            }}
+                            title="Reset to Inherited/Default Settings"
+                            onMouseEnter={() => { }}
+                        >
+                            Reset to Default
+                        </button>
+                    )}
                 </div>
             )}
         </div>

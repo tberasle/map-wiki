@@ -256,12 +256,26 @@ const MapCanvas = ({ mapImage, pins = [], onAddPin, onSelectPin, selectedPinId, 
                                             return;
                                         }
 
-                                        // Calculate origin relative to container
+                                        // Calculate origin relative to container using PIN POSITION (not click)
                                         if (containerRef.current) {
-                                            const rect = containerRef.current.getBoundingClientRect();
+                                            const containerRect = containerRef.current.getBoundingClientRect();
+                                            const imgElement = containerRef.current.querySelector('.map-img-element');
+
+                                            // Fallback to mouse click if no image (shouldn't happen with pins)
+                                            let pinX = e.clientX;
+                                            let pinY = e.clientY;
+
+                                            if (imgElement) {
+                                                const imgRect = imgElement.getBoundingClientRect();
+                                                // Pin coordinates are percentages of the image
+                                                // Calculate screen X/Y of the pin center
+                                                pinX = imgRect.left + (imgRect.width * (pin.x / 100));
+                                                pinY = imgRect.top + (imgRect.height * (pin.y / 100));
+                                            }
+
                                             const origin = {
-                                                x: ((e.clientX - rect.left) / rect.width) * 100,
-                                                y: ((e.clientY - rect.top) / rect.height) * 100
+                                                x: ((pinX - containerRect.left) / containerRect.width) * 100,
+                                                y: ((pinY - containerRect.top) / containerRect.height) * 100
                                             };
                                             onSelectPin(pin.id, origin);
                                         } else {

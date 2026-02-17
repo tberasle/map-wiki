@@ -12,6 +12,7 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
     const [icon, setIcon] = useState('default');
     const [color, setColor] = useState('#ef4444');
     const [showLabel, setShowLabel] = useState(false);
+    const [size, setSize] = useState('medium'); // Size state
 
 
     useEffect(() => {
@@ -22,13 +23,14 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
             setIcon(selectedPin.icon || 'default');
             setColor(selectedPin.color || '#ef4444');
             setShowLabel(selectedPin.showLabel || false);
+            setSize(selectedPin.size || 'medium');
         }
     }, [selectedPin]);
 
     // ... (rest of component logic)
 
     const handleSave = () => {
-        onSave(selectedPin.id, { title, content, mapImage, icon, color, showLabel });
+        onSave(selectedPin.id, { title, content, mapImage, icon, color, showLabel, size });
     };
 
     const handleImageUpload = (e) => {
@@ -175,6 +177,32 @@ const WikiEditor = ({ selectedPin, onClose, onSave, onEnterMap, isEditing, onSet
                                         }}
                                     >
                                         <item.icon size={20} color={icon === item.id ? color : 'currentColor'} />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Icon Size</label>
+                            <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: 'var(--secondary-color)', padding: '0.25rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)' }}>
+                                {['tiny', 'small', 'medium', 'large', 'extraLarge'].map(s => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setSize(s)}
+                                        style={{
+                                            flex: 1,
+                                            padding: '0.5rem',
+                                            border: 'none',
+                                            borderRadius: '0.25rem',
+                                            backgroundColor: size === s ? 'var(--primary-color)' : 'transparent',
+                                            color: size === s ? 'white' : 'var(--text-color)',
+                                            cursor: 'pointer',
+                                            fontSize: '0.8rem',
+                                            fontWeight: size === s ? 'bold' : 'normal',
+                                            textTransform: 'capitalize'
+                                        }}
+                                        title={s}
+                                    >
+                                        {s === 'extraLarge' ? 'XL' : s === 'tiny' ? 'XS' : s.charAt(0).toUpperCase()}
                                     </button>
                                 ))}
                             </div>

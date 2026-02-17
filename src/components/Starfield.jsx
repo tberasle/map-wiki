@@ -4,15 +4,28 @@ const Starfield = ({ warpMode, origin, settings }) => {
     const canvasRef = useRef(null);
     const requestRef = useRef();
 
-    // Default settings
-    const starColor = settings?.starColor || '#ffffff';
-    const bgColor = settings?.bgColor || 'transparent';
-    const speed = settings?.speed !== undefined ? settings.speed : 1;
-    const twinkleSpeed = settings?.twinkleSpeed !== undefined ? settings.twinkleSpeed : 0.5;
+    // Use ref to hold latest settings without re-triggering effect
+    const settingsRef = useRef(settings);
+
+    // Update ref when settings change
+    useEffect(() => {
+        settingsRef.current = settings;
+    }, [settings]);
 
     // Star data
     const starsRef = useRef([]);
     const canvasSize = useRef({ w: 0, h: 0 });
+    const startWarpTime = useRef(0);
+    const originRef = useRef({ x: 50, y: 50 });
+
+    // Reset timer on warp start
+    useEffect(() => {
+        if (warpMode === 'zooming-in' || warpMode === 'zooming-out') {
+            startWarpTime.current = Date.now();
+        } else if (!warpMode) {
+            startWarpTime.current = 0;
+        }
+    }, [warpMode]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -39,6 +52,13 @@ const Starfield = ({ warpMode, origin, settings }) => {
         }
 
         const render = () => {
+            // Default settings from ref
+            const currentSettings = settingsRef.current || {};
+            const starColor = currentSettings.starColor || '#ffffff';
+            const bgColor = currentSettings.bgColor || 'transparent';
+            const speed = currentSettings.speed !== undefined ? currentSettings.speed : 0;
+            const twinkleSpeed = currentSettings.twinkleSpeed !== undefined ? currentSettings.twinkleSpeed : 0.5;
+
             // Resize Logic
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
                 canvas.width = window.innerWidth;
@@ -47,8 +67,34 @@ const Starfield = ({ warpMode, origin, settings }) => {
             }
 
             const { w, h } = canvasSize.current;
-            const cx = origin ? (origin.x / 100) * w : w / 2;
-            const cy = origin ? (origin.y / 100) * h : h / 2;
+
+            // Interpolate Origin (Sustain last origin if null)
+            let targetX = originRef.current.x;
+            let targetY = originRef.current.y;
+
+            if (origin) {
+                targetX = origin.x;
+                targetY = origin.y;
+            } else {
+                // When idle/null, just drift VERY slowly back to center?
+                // Or stay put? User wants NO jerk. Stay put is safest.
+                // But if we want subtle reset:
+                // targetX = 50; targetY = 50; 
+                // and use super slow factor 0.01?
+                // User said "jerk shouldn't happen at all".
+                // I'll stick to staying put.
+                targetX = originRef.current.x;
+                targetY = originRef.current.y;
+            }
+
+            // Rapidly move to new target effectively snapping near instant if factor is high, 
+            // or smooth if 0.1. A warp click usually implies immediate focus.
+            // Let's use 0.2 for responsiveness.
+            originRef.current.x += (targetX - originRef.current.x) * 0.2;
+            originRef.current.y += (targetY - originRef.current.y) * 0.2;
+
+            const cx = (originRef.current.x / 100) * w;
+            const cy = (originRef.current.y / 100) * h;
 
             // Clear
             ctx.fillStyle = bgColor;
@@ -68,6 +114,11 @@ const Starfield = ({ warpMode, origin, settings }) => {
                 targetSpeed = speed; // Default speed (0 or user set)
             }
 
+            // Override if duration exceeded (0.7s)
+            if (startWarpTime.current > 0 && (Date.now() - startWarpTime.current > 200)) {
+                targetSpeed = speed;
+            }
+
             // Lerp current speed towards target
             // Initialize if undefined
             if (starsRef.current.speed === undefined) {
@@ -75,7 +126,7 @@ const Starfield = ({ warpMode, origin, settings }) => {
             }
 
             // Smoothly interpolate
-            starsRef.current.speed += (targetSpeed - starsRef.current.speed) * 0.05;
+            starsRef.current.speed += (targetSpeed - starsRef.current.speed) * 0.025;
 
             // If very close to 0, snap to 0 to allow perfect static twinkling
             if (Math.abs(starsRef.current.speed) < 0.01 && targetSpeed === 0) {
@@ -150,7 +201,8 @@ const Starfield = ({ warpMode, origin, settings }) => {
         requestRef.current = requestAnimationFrame(render);
 
         return () => cancelAnimationFrame(requestRef.current);
-    }, [warpMode, origin, settings]); // Re-bind if these change
+        return () => cancelAnimationFrame(requestRef.current);
+    }, [warpMode, origin]); // Re-bind ONLY if warp/origin change. Settings are handled via ref.
 
     return (
         <canvas
